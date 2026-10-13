@@ -1,0 +1,156 @@
+/* 옵시디언: 설정 → 외관 → CSS 스니펫에 이 파일 내용을 넣고 활성화하십시오. */
+/* A4 세로 전용. 프로세스 상자 고아줄 금지. 표가 가로로 넘치지 않게. */
+
+@page {
+  size: A4 portrait;
+  margin: 16mm 14mm 18mm 14mm;
+}
+
+/* 한글은 어절 단위. 표 칸만 칸 너비 안에서 접습니다. */
+.markdown-preview-view,
+.markdown-rendered,
+.dgist-guide {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-break: strict;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* 프로세스: 한 상자 = 한 줄. 줄바꿈·고아줄 없음. 내용만큼만 넓이. */
+table.flow {
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0.8em auto !important;
+  border-collapse: collapse;
+  table-layout: auto !important;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+table.flow td {
+  text-align: center;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  line-break: strict;
+  line-height: 1.25;
+  font-size: 0.95em;
+  padding: 0.4em 0.85em;
+  border: 1px solid currentColor;
+  width: auto !important;
+  max-width: none;
+}
+
+table.flow tr.arr td {
+  border: none !important;
+  padding: 0.12em 0 !important;
+  line-height: 1;
+  font-size: 0.9em;
+}
+
+/* 본문 표: 항상 페이지 너비의 세로 2칸. 칸 안에서만 접힘. */
+.markdown-preview-view table:not(.flow),
+.markdown-rendered table:not(.flow) {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse;
+}
+
+.markdown-preview-view table:not(.flow) th,
+.markdown-preview-view table:not(.flow) td,
+.markdown-rendered table:not(.flow) th,
+.markdown-rendered table:not(.flow) td {
+  width: 50%;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
+  white-space: normal !important;
+  vertical-align: top;
+  font-size: 0.9em;
+  hyphens: auto;
+}
+
+.markdown-preview-view img,
+.markdown-preview-view pre,
+.markdown-preview-view svg {
+  max-width: 100% !important;
+  height: auto;
+}
+
+@media print {
+  html,
+  body,
+  .markdown-preview-view,
+  .markdown-preview-sizer {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    page-break-after: avoid;
+    break-after: avoid-page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  h2 + *,
+  h3 + * {
+    page-break-before: avoid;
+    break-before: avoid-page;
+  }
+
+  p,
+  li,
+  blockquote,
+  .callout {
+    orphans: 4;
+    widows: 4;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    line-break: strict;
+  }
+
+  table.flow {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    max-width: 100% !important;
+  }
+
+  table.flow td {
+    white-space: nowrap !important;
+  }
+
+  table:not(.flow) {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  table:not(.flow) th,
+  table:not(.flow) td {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+  }
+
+  pre,
+  svg,
+  img,
+  .mermaid {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .markdown-preview-view hr {
+    page-break-after: avoid;
+  }
+}
