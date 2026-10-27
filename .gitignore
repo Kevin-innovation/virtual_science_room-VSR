@@ -10,3 +10,4 @@ dist/
 *.local
 .vercel
 .env*
+.DS_Store
