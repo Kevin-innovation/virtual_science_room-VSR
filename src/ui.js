@@ -4,8 +4,10 @@ const checklistEl = document.getElementById("checklist");
 const toastEl = document.getElementById("toast");
 const tooltipEl = document.getElementById("tooltip");
 const endScreenEl = document.getElementById("end-screen");
+const burnFlashEl = document.getElementById("burn-flash");
 
 let toastTimer = null;
+let burnTimer = null;
 
 export function setStep(idxLabel, text) {
   stepIndexEl.textContent = idxLabel;
@@ -40,4 +42,10 @@ export function setTooltip(text) {
 
 export function showEndScreen() {
   endScreenEl.classList.remove("hidden");
+}
+
+export function flashBurn() {
+  burnFlashEl.classList.add("show");
+  if (burnTimer) clearTimeout(burnTimer);
+  burnTimer = setTimeout(() => burnFlashEl.classList.remove("show"), 350);
 }

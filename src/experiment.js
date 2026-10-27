@@ -129,7 +129,7 @@ export function createExperiment(registry) {
         break;
       }
       case 2: {
-        if (heldId === "igniter" && targetId === "alcohol_lamp") {
+        if (heldId === "igniter" && (targetId === "alcohol_lamp" || targetId === "wire_mesh")) {
           state.lampLit = true;
           const lamp = get("alcohol_lamp");
           lamp.getObjectByName("flame").visible = true;

@@ -161,6 +161,20 @@ html, body {
   font-weight: 700;
 }
 
+#burn-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 70, 0, 0) 35%, rgba(255, 20, 0, 0.55) 100%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  transition: opacity 0.12s ease;
+}
+
+#burn-flash.show {
+  opacity: 1;
+}
+
 #toast {
   position: fixed;
   bottom: 40px;

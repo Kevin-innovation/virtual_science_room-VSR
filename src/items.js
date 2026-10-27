@@ -84,6 +84,7 @@ function buildBeaker(id, name) {
     hasCabbage: false,
     hasWater: false,
     isExtract: false,
+    breakable: true,
   });
   return g;
 }
@@ -142,7 +143,7 @@ function buildDropperBottle(id, name, liquidColor, prefilled) {
   g.add(liquid);
 
   g.add(makeLabel(name));
-  tagRoot(g, id, name, true, { kind: "bottle", filled: !!prefilled, liquidColor });
+  tagRoot(g, id, name, true, { kind: "bottle", filled: !!prefilled, liquidColor, breakable: true });
   return g;
 }
 
@@ -300,7 +301,7 @@ function buildAlcoholLamp(id, topY) {
   flameLight.name = "flameLight";
   g.add(flameLight);
 
-  g.position.set(DESK_A.x - 0.25, topY, DESK_A.z);
+  g.position.set(DESK_A.x, topY, DESK_A.z);
   g.add(makeLabel("알코올램프"));
   tagRoot(g, id, "알코올램프", false, { kind: "lamp", lit: false, interactType: "lamp" });
   return g;
@@ -341,7 +342,7 @@ function buildTripodAndMesh(topY) {
   restPoint.position.y = 0.235;
   g.add(restPoint);
 
-  g.position.set(DESK_A.x + 0.25, topY, DESK_A.z);
+  g.position.set(DESK_A.x, topY, DESK_A.z);
   tagRoot(g, "wire_mesh", "삼발이 / 쇠그물", false, { kind: "tripod", interactType: "tripod" });
   return g;
 }
@@ -362,7 +363,10 @@ function buildTestTubeRack(topY) {
 export function buildItems(scene, roomInfo) {
   const registry = new Map();
   const add = (obj, pos) => {
-    if (pos) obj.position.copy(pos);
+    if (pos) {
+      obj.position.copy(pos);
+      obj.userData.spawnPosition = pos.clone();
+    }
     scene.add(obj);
     registry.set(obj.userData.id, obj);
     return obj;
@@ -413,9 +417,13 @@ export function buildItems(scene, roomInfo) {
     buildDropperBottle("sol_hcl", "묽은 염산", 0xffffff, true),
     buildDropperBottle("sol_naoh", "묽은 수산화나트륨", 0xffffff, true),
   ];
-  const startX = SUPPLY_TABLE.x - (supplyItems.length - 1) * 0.22 * 0.5;
+  // Center the row under the supply table (keep margin so nothing hangs off
+  // the table edge or pokes through the east wall beyond it).
+  const ITEM_SPACING = 0.4;
+  const rowSpan = (supplyItems.length - 1) * ITEM_SPACING;
+  const startX = SUPPLY_TABLE.x - rowSpan / 2;
   supplyItems.forEach((item, i) => {
-    add(item, new THREE.Vector3(startX + i * 0.44, supplyTop, SUPPLY_TABLE.z));
+    add(item, new THREE.Vector3(startX + i * ITEM_SPACING, supplyTop, SUPPLY_TABLE.z));
   });
 
   return registry;

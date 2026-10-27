@@ -15,6 +15,10 @@ scene.fog = new THREE.Fog(0xcfeaf7, 14, 30);
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 100);
 camera.position.set(SPAWN.x, SPAWN.y, SPAWN.z);
+// The camera must be part of the scene graph, otherwise objects parented to
+// it (held items) are never visited by the renderer's traversal and render
+// as invisible even though they have a valid parent/transform.
+scene.add(camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -141,10 +145,9 @@ function raycastTarget(excludeItem) {
 }
 
 function pickUp(item) {
-  const worldPos = new THREE.Vector3();
-  item.getWorldPosition(worldPos);
-  const worldQuat = new THREE.Quaternion();
-  item.getWorldQuaternion(worldQuat);
+  // cancel any in-progress fall if the player catches it off a surface
+  const fallIdx = fallingItems.findIndex((f) => f.obj === item);
+  if (fallIdx !== -1) fallingItems.splice(fallIdx, 1);
 
   scene.remove(item);
   camera.add(item);
@@ -160,78 +163,135 @@ function disableInteraction(obj) {
   });
 }
 
-function dropAtWorld(item, worldPos) {
+// ---------- Gravity / falling / breaking ----------
+const fallingItems = []; // { obj, vy, startY, breakable }
+const GRAVITY = -9.8;
+const BREAK_FALL_HEIGHT = 0.5;
+const downRaycaster = new THREE.Raycaster();
+const DOWN = new THREE.Vector3(0, -1, 0);
+
+function findGroundY(x, z, fromY) {
+  downRaycaster.set(new THREE.Vector3(x, fromY + 0.3, z), DOWN);
+  downRaycaster.far = 20;
+  const hits = downRaycaster.intersectObjects(roomInfo.groundMeshes, false);
+  if (hits.length) return hits[0].point.y;
+  return 0; // fall back to the room floor
+}
+
+function breakItem(item) {
+  const name = item.userData.name;
+  ui.toast(`${name}이(가) 바닥에 떨어져 깨졌습니다!`);
+  scene.remove(item);
+  disableInteraction(item);
+
+  const spawnPos = item.userData.spawnPosition;
+  if (!spawnPos) return;
+  setTimeout(() => {
+    item.traverse((o) => delete o.raycast);
+    if (item.userData.kind === "beaker") {
+      item.userData.hasCabbage = false;
+      item.userData.hasWater = false;
+      item.userData.isExtract = false;
+      const bits = item.getObjectByName("cabbageBits");
+      if (bits) bits.visible = false;
+      const liquid = item.getObjectByName("liquid");
+      if (liquid) liquid.visible = false;
+    }
+    if (item.userData.kind === "bottle" && item.userData.id === "indicator_bottle") {
+      item.userData.filled = false;
+      const liquid = item.getObjectByName("liquid");
+      if (liquid) liquid.visible = false;
+    }
+    item.position.copy(spawnPos);
+    item.rotation.set(0, 0, 0);
+    item.visible = true;
+    scene.add(item);
+    ui.toast(`${name}이(가) 재료실에 새로 준비되었습니다.`);
+  }, 1500);
+}
+
+function startFalling(item, breakable) {
+  fallingItems.push({ obj: item, vy: 0, startY: item.position.y, breakable });
+}
+
+function updateFalling(dt) {
+  for (let i = fallingItems.length - 1; i >= 0; i--) {
+    const f = fallingItems[i];
+    f.vy += GRAVITY * dt;
+    f.obj.position.y += f.vy * dt;
+    const groundY = findGroundY(f.obj.position.x, f.obj.position.z, f.obj.position.y);
+    if (f.obj.position.y <= groundY) {
+      f.obj.position.y = groundY;
+      const fallDist = f.startY - groundY;
+      fallingItems.splice(i, 1);
+      if (f.breakable && fallDist > BREAK_FALL_HEIGHT) {
+        breakItem(f.obj);
+      }
+    }
+  }
+}
+
+function releaseHeld() {
+  if (!heldItem) return;
+  const item = heldItem;
+  const target = raycastTarget(item);
+  const result = experiment.tryUse(item.userData.id, target ? target.userData.id : null);
+  heldItem = null;
+
+  const worldPos = new THREE.Vector3();
+  item.getWorldPosition(worldPos);
   camera.remove(item);
   scene.add(item);
   item.position.copy(worldPos);
-}
 
-const SINK_COUNTER_TOP = 0.9;
-function restHeightOverride(target) {
-  if (target && target.userData.interactType === "faucet") return SINK_COUNTER_TOP;
-  return null;
-}
+  if (result.handled && target && result.targetConsume) {
+    disableInteraction(target);
+  }
+  if (result.handled && result.heldConsume) {
+    disableInteraction(item);
+    return;
+  }
+  if (result.handled && result.snapWorldPosition) {
+    // precise, intentional placement (e.g. beaker onto the tripod) — no physics
+    item.position.copy(result.snapWorldPosition);
+    return;
+  }
 
-function forwardDropPoint() {
-  // simple floor-projected drop point in front of the player
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
-  const dist = 1.3;
-  const p = camera.position.clone().add(dir.multiplyScalar(dist));
-  p.y = Math.max(0.05, Math.min(p.y, 1.4));
-  return p;
+  if (target) {
+    const tp = new THREE.Vector3();
+    target.getWorldPosition(tp);
+    item.position.x = tp.x;
+    item.position.z = tp.z;
+  } else {
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    const dropPoint = camera.position.clone().add(dir.multiplyScalar(1.3));
+    item.position.x = dropPoint.x;
+    item.position.z = dropPoint.z;
+  }
+  startFalling(item, !!item.userData.breakable);
 }
 
 renderer.domElement.addEventListener("mousedown", (e) => {
-  if (e.button !== 0 || !controls.isLocked) return;
-  const target = raycastTarget(heldItem);
-  if (!target) return;
+  if (!controls.isLocked) return;
 
-  if (!heldItem) {
+  if (e.button === 0) {
+    // left click: pick up a carryable item, or tap a fixed one (faucet, test tube)
+    if (heldItem) return;
+    const target = raycastTarget(null);
+    if (!target) return;
     if (target.userData.carryable) {
       pickUp(target);
     } else {
-      // direct tap action (faucet, test tube observe)
       const res = experiment.tryTap(target.userData.id);
       if (res.handled && res.water === "on") {
         const mesh = sinkWaterMeshes[res.sink];
         if (mesh) mesh.visible = true;
       }
     }
-  }
-});
-
-renderer.domElement.addEventListener("mouseup", (e) => {
-  if (e.button !== 0 || !controls.isLocked) return;
-  if (!heldItem) return;
-
-  const item = heldItem;
-  const target = raycastTarget(item);
-  const result = experiment.tryUse(item.userData.id, target ? target.userData.id : null);
-  heldItem = null;
-
-  if (result.handled) {
-    if (target && result.targetConsume) {
-      disableInteraction(target);
-    }
-    if (result.heldConsume) {
-      camera.remove(item);
-      disableInteraction(item);
-    } else if (result.snapWorldPosition) {
-      dropAtWorld(item, result.snapWorldPosition);
-    } else if (target) {
-      const worldPos = new THREE.Vector3();
-      target.getWorldPosition(worldPos);
-      const override = restHeightOverride(target);
-      worldPos.y = override !== null ? override : worldPos.y + 0.02;
-      worldPos.x += (Math.random() - 0.5) * 0.15;
-      worldPos.z += (Math.random() - 0.5) * 0.15;
-      dropAtWorld(item, worldPos);
-    } else {
-      dropAtWorld(item, forwardDropPoint());
-    }
-  } else {
-    dropAtWorld(item, forwardDropPoint());
+  } else if (e.button === 2) {
+    // right click: drop / use the held item on whatever is targeted
+    releaseHeld();
   }
 });
 
@@ -245,7 +305,7 @@ renderer.domElement.addEventListener(
   { passive: false }
 );
 
-// prevent context menu interfering with click-hold on right click drag etc (not used, but keep clean)
+// right-click drops instead of opening the browser context menu
 renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // ---------- Hover tooltip ----------
@@ -278,6 +338,21 @@ function animateFlame(t) {
   }
 }
 
+// ---------- Burn hazard ----------
+const BURN_RADIUS = 1.3;
+const BURN_COOLDOWN = 2.0;
+let lastBurnTime = -Infinity;
+function updateBurnCheck(t) {
+  if (!experiment.state.lampLit) return;
+  const lamp = registry.get("alcohol_lamp");
+  const dist = camera.position.distanceTo(lamp.position);
+  if (dist < BURN_RADIUS && t - lastBurnTime > BURN_COOLDOWN) {
+    lastBurnTime = t;
+    ui.toast("뜨거워요! 화상을 입었습니다. 불에서 떨어지세요!");
+    ui.flashBurn();
+  }
+}
+
 // ---------- Main loop ----------
 const clock = new THREE.Clock();
 function animate() {
@@ -287,7 +362,9 @@ function animate() {
 
   updateMovement(dt);
   experiment.update(dt);
+  updateFalling(dt);
   animateFlame(t);
+  updateBurnCheck(t);
   updateTooltip();
 
   renderer.render(scene, camera);

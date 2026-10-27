@@ -16,6 +16,7 @@ function box(w, h, d, color, opts = {}) {
 
 export function buildRoom(scene) {
   const colliders = [];
+  const groundMeshes = [];
   const group = new THREE.Group();
   scene.add(group);
 
@@ -27,6 +28,7 @@ export function buildRoom(scene) {
   floorMain.rotation.x = -Math.PI / 2;
   floorMain.position.set((ROOM.minX + ROOM.materialsRoomStartX) / 2, 0, 0);
   group.add(floorMain);
+  groundMeshes.push(floorMain);
 
   const floorSupply = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM.maxX - ROOM.materialsRoomStartX, ROOM.maxZ - ROOM.minZ),
@@ -35,6 +37,7 @@ export function buildRoom(scene) {
   floorSupply.rotation.x = -Math.PI / 2;
   floorSupply.position.set((ROOM.materialsRoomStartX + ROOM.maxX) / 2, 0, 0);
   group.add(floorSupply);
+  groundMeshes.push(floorSupply);
 
   // ---- Ceiling ----
   const ceiling = new THREE.Mesh(
@@ -108,6 +111,7 @@ export function buildRoom(scene) {
     const counter = box(1.6, 0.9, 0.7, COUNTER);
     counter.position.set(cfg.x, 0.45, cfg.z + 0.45);
     group.add(counter);
+    groundMeshes.push(counter);
     addWallCollider(cfg.x - 0.8, cfg.x + 0.8, cfg.z, cfg.z + 0.9);
 
     const basin = box(1.1, 0.15, 0.45, 0xeceff1);
@@ -179,6 +183,7 @@ export function buildRoom(scene) {
     const top = box(cfg.w, 0.08, cfg.d, WOOD);
     top.position.set(cfg.x, cfg.h, cfg.z);
     group.add(top);
+    groundMeshes.push(top);
     const legGeo = new THREE.CylinderGeometry(0.05, 0.05, cfg.h, 8);
     const legMat = new THREE.MeshStandardMaterial({ color: 0x4e342e });
     const offsets = [
@@ -249,6 +254,7 @@ export function buildRoom(scene) {
 
   return {
     colliders,
+    groundMeshes,
     deskA,
     deskB,
     supplyTop,
