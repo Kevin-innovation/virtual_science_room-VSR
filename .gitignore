@@ -2,3 +2,10 @@
 AI-SW school_모집요강_업로드용.pdf
 **/AI-SW school_모집요강_업로드용.pdf
 *모집요강_업로드용.pdf
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.local
+.vercel

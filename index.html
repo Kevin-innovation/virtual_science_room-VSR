@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VSR - 가상 과학실 (붉은 양배추 지시약 실험)</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="blocker">
+      <div id="instructions">
+        <h1>VSR 가상 과학실</h1>
+        <p>붉은 양배추 지시약 만들기 실험</p>
+        <button id="start-btn">클릭해서 입장하기</button>
+        <div class="controls-help">
+          <p><b>이동</b> W A S D &nbsp;&nbsp; <b>시점</b> 마우스</p>
+          <p><b>집기</b> 크로스헤어를 물건에 맞추고 좌클릭 꾹 누르기 &nbsp;&nbsp; <b>놓기</b> 좌클릭 떼기</p>
+          <p><b>회전</b> 들고 있는 동안 마우스 휠</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="crosshair">+</div>
+    <div id="tooltip"></div>
+
+    <div id="step-banner">
+      <div id="step-index"></div>
+      <div id="step-text"></div>
+    </div>
+
+    <div id="checklist"></div>
+
+    <div id="toast"></div>
+
+    <div id="end-screen" class="hidden">
+      <div class="end-card">
+        <h1>실험 완료!</h1>
+        <p>붉은 양배추 지시약 실험을 모두 마치고 손도 깨끗이 씻었습니다.</p>
+        <p class="sub">수고했어요 🙂</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
