@@ -13,7 +13,7 @@ export const ROOM = {
 export const DESK_A = { x: -5.5, z: 1.6, w: 2.2, d: 1.0, h: 0.9 }; // heating desk
 export const DESK_B = { x: -2.2, z: -1.6, w: 2.2, d: 1.0, h: 0.9 }; // test tube desk
 
-export const SUPPLY_TABLE = { x: 11.5, z: 0, w: 7.5, d: 1.1, h: 0.9 };
+export const SUPPLY_TABLE = { x: 11.5, z: 0, w: 6.4, d: 1.1, h: 0.9 }; // 16 items at 0.36m spacing + margin
 
 export const SINK_A = { x: -7.2, z: -5.3 };
 export const SINK_B = { x: 2.0, z: -5.3 };

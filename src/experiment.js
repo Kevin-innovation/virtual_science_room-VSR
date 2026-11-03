@@ -96,7 +96,7 @@ export function createExperiment(registry) {
     liquid.material.opacity = opacity;
   }
 
-  // Returns { handled, heldConsume, targetConsume, snapWorldPosition }
+  // Returns { handled, heldConsume, targetConsume, snapWorldPosition, pour }
   function tryUse(heldId, targetId) {
     if (!targetId || state.finished) return { handled: false };
     const held = get(heldId);
@@ -201,7 +201,7 @@ export function createExperiment(registry) {
             ui.toast("여섯 시험관에 모두 용액을 넣었습니다!");
             advanceStep();
           }
-          return { handled: true, heldConsume: false, targetConsume: false };
+          return { handled: true, heldConsume: false, targetConsume: false, pour: true };
         }
         break;
       }
@@ -231,7 +231,7 @@ export function createExperiment(registry) {
             ui.toast("모든 시험관의 색이 변했습니다!");
             advanceStep();
           }
-          return { handled: true, heldConsume: false, targetConsume: false };
+          return { handled: true, heldConsume: false, targetConsume: false, pour: true };
         }
         break;
       }

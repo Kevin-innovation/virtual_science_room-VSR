@@ -107,7 +107,8 @@ function buildTestTube(id, index, deskPos) {
   liquid.name = "liquid";
   g.add(liquid);
 
-  g.add(makeLabel(`시험관 ${index}`));
+  // tubes sit only 0.08m apart, so a full "시험관 N" label would overlap its neighbours
+  g.add(makeLabel(`${index}`));
   tagRoot(g, id, `시험관 ${index}`, false, {
     kind: "testtube",
     solution: null,
@@ -419,7 +420,7 @@ export function buildItems(scene, roomInfo) {
   ];
   // Center the row under the supply table (keep margin so nothing hangs off
   // the table edge or pokes through the east wall beyond it).
-  const ITEM_SPACING = 0.4;
+  const ITEM_SPACING = 0.36;
   const rowSpan = (supplyItems.length - 1) * ITEM_SPACING;
   const startX = SUPPLY_TABLE.x - rowSpan / 2;
   supplyItems.forEach((item, i) => {
