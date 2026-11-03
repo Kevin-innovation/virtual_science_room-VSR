@@ -32,6 +32,7 @@ function makeLabel(text) {
   sprite.scale.set(0.7, 0.18, 1);
   sprite.position.y = 0.4;
   sprite.renderOrder = 10;
+  sprite.name = "label";
   return sprite;
 }
 
@@ -418,13 +419,17 @@ export function buildItems(scene, roomInfo) {
     buildDropperBottle("sol_hcl", "묽은 염산", 0xffffff, true),
     buildDropperBottle("sol_naoh", "묽은 수산화나트륨", 0xffffff, true),
   ];
-  // Center the row under the supply table (keep margin so nothing hangs off
-  // the table edge or pokes through the east wall beyond it).
-  const ITEM_SPACING = 0.36;
-  const rowSpan = (supplyItems.length - 1) * ITEM_SPACING;
+  // Two rows of 8 across the (shorter) supply table. Items alternate rows so the
+  // two beakers never sit side by side, and each row is centred under the table.
+  const ITEM_SPACING = 0.3;
+  const ROW_Z = 0.25;
+  const cols = Math.ceil(supplyItems.length / 2);
+  const rowSpan = (cols - 1) * ITEM_SPACING;
   const startX = SUPPLY_TABLE.x - rowSpan / 2;
   supplyItems.forEach((item, i) => {
-    add(item, new THREE.Vector3(startX + i * ITEM_SPACING, supplyTop, SUPPLY_TABLE.z));
+    const col = Math.floor(i / 2);
+    const zOffset = i % 2 === 0 ? -ROW_Z : ROW_Z;
+    add(item, new THREE.Vector3(startX + col * ITEM_SPACING, supplyTop, SUPPLY_TABLE.z + zOffset));
   });
 
   return registry;

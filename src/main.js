@@ -118,10 +118,12 @@ const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
 const centerNDC = new THREE.Vector2(0, 0);
 
-let heldItem = null;
+let heldItem = null; // active item: the last one picked up; wheel, Q/E and right-click act on it
+const heldItems = []; // everything in hand, in pickup order
+const wornItems = []; // equipped with F
 
 function allInteractables() {
-  return Array.from(registry.values());
+  return Array.from(registry.values()).filter((o) => !heldItems.includes(o) && !wornItems.includes(o));
 }
 
 function findInteractable(obj) {
@@ -155,10 +157,44 @@ function pickUp(item) {
 
   scene.remove(item);
   camera.add(item);
-  item.position.set(0.32, -0.28, -0.75);
   item.quaternion.identity();
+  heldItems.push(item);
   heldItem = item;
+  layoutHand();
 }
+
+// items in hand fan out to the right, each one a step further left and back
+const HAND_POS = new THREE.Vector3(0.32, -0.28, -0.75);
+const HAND_STEP = new THREE.Vector3(-0.14, 0, -0.06);
+function layoutHand() {
+  heldItems.forEach((it, i) => it.position.copy(HAND_POS).addScaledVector(HAND_STEP, i));
+}
+
+function removeFromHand(item) {
+  heldItems.splice(heldItems.indexOf(item), 1);
+  heldItem = heldItems[heldItems.length - 1] ?? null;
+  layoutHand();
+}
+
+// Wearables are carried until F puts them on. Worn items sit fixed in view.
+const WORN_POSE = {
+  goggles: [0, 0.02, -0.25],
+  coated_gloves: [-0.3, -0.3, -0.5],
+  lab_gloves: [-0.18, -0.3, -0.5],
+};
+function wearHeld() {
+  if (!controls.isLocked || !heldItem || heldItem.userData.kind !== "wearable") return;
+  const item = heldItem;
+  removeFromHand(item);
+  const [x, y, z] = WORN_POSE[item.userData.id] ?? [0, 0, -0.3];
+  item.position.set(x, y, z);
+  item.quaternion.identity();
+  wornItems.push(item);
+  ui.toast(`${item.userData.name}을(를) 착용했습니다.`);
+}
+window.addEventListener("keydown", (e) => {
+  if (!e.repeat && e.key.toLowerCase() === "f") wearHeld();
+});
 
 function disableInteraction(obj) {
   obj.visible = false;
@@ -250,13 +286,43 @@ const POUR_IN = 0.25; // seconds to move over the tube
 const POUR_HOLD = 0.8; // seconds of tilting
 const POUR_TILT = 0.5; // radians
 const POUR_REACH = 0.25; // bottle mouth height above its origin
+const POUR_OUT = 0.35; // seconds to stand the bottle back up beside the tube
+const DRIP_INTERVAL = 0.12; // seconds between droplets while tilted
+const DROP_FALL_TIME = 0.35;
+const dropGeo = new THREE.SphereGeometry(0.012, 8, 6);
+const drops = []; // { mesh, t, from, to }
 
 function startPour(item, target) {
   const tp = new THREE.Vector3();
   target.getWorldPosition(tp);
   // tilt the bottle so its mouth (not its base) ends up above the tube
   const pose = new THREE.Vector3(tp.x + POUR_REACH * Math.sin(POUR_TILT), tp.y + 0.3, tp.z);
-  pours.push({ item, target, t: 0, from: item.position.clone(), rot0: item.rotation.z, pose, tp });
+  // where the bottle is finally set down: on the desk, beside the tube
+  const setDown = new THREE.Vector3(tp.x, tp.y - 0.03, tp.z + FIXTURE_DROP_OFFSET);
+  pours.push({ item, t: 0, from: item.position.clone(), rot0: item.rotation.z, pose, setDown, tp });
+}
+
+function spawnDrop(p) {
+  const color = p.item.getObjectByName("liquid")?.material.color.getHex() ?? 0xffffff;
+  const mesh = new THREE.Mesh(dropGeo, new THREE.MeshStandardMaterial({ color, roughness: 0.2 }));
+  // the tilted bottle's mouth is directly over the tube
+  mesh.position.set(p.tp.x, p.tp.y + 0.3 + POUR_REACH * Math.cos(POUR_TILT), p.tp.z);
+  scene.add(mesh);
+  drops.push({ mesh, t: 0, from: mesh.position.y, to: p.tp.y + 0.2 });
+}
+
+function updateDrops(dt) {
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i];
+    d.t += dt;
+    const k = Math.min(d.t / DROP_FALL_TIME, 1);
+    d.mesh.position.y = d.from + (d.to - d.from) * k * k; // accelerates like gravity
+    if (k >= 1) {
+      scene.remove(d.mesh);
+      d.mesh.material.dispose();
+      drops.splice(i, 1);
+    }
+  }
 }
 
 function updatePours(dt) {
@@ -270,14 +336,23 @@ function updatePours(dt) {
     } else if (p.t < POUR_IN + POUR_HOLD) {
       p.item.position.copy(p.pose);
       p.item.rotation.z = POUR_TILT + Math.sin((p.t - POUR_IN) * 12) * 0.12;
+      p.dripTimer = (p.dripTimer ?? 0) - dt;
+      if (p.dripTimer <= 0) {
+        spawnDrop(p);
+        p.dripTimer += DRIP_INTERVAL;
+      }
+    } else if (p.t < POUR_IN + POUR_HOLD + POUR_OUT) {
+      // stand the bottle back up beside the tube, without dropping it
+      const k = (p.t - POUR_IN - POUR_HOLD) / POUR_OUT;
+      p.item.position.lerpVectors(p.pose, p.setDown, k);
+      p.item.rotation.z = POUR_TILT * (1 - k);
     } else {
-      // done pouring: set the bottle down beside the tube so it does not clip through it
       pours.splice(i, 1);
+      p.item.position.copy(p.setDown);
       p.item.rotation.z = 0;
-      p.item.position.set(p.tp.x, p.pose.y, p.tp.z + FIXTURE_DROP_OFFSET);
-      startFalling(p.item, !!p.item.userData.breakable);
     }
   }
+  updateDrops(dt);
 }
 
 // Q/E turn the held item left/right (around Y); scroll tilts it up/down (around X)
@@ -293,7 +368,7 @@ function releaseHeld() {
   const item = heldItem;
   const target = raycastTarget(item);
   const result = experiment.tryUse(item.userData.id, target ? target.userData.id : null);
-  heldItem = null;
+  removeFromHand(item);
 
   const worldPos = new THREE.Vector3();
   item.getWorldPosition(worldPos);
@@ -339,8 +414,7 @@ renderer.domElement.addEventListener("mousedown", (e) => {
   if (!controls.isLocked) return;
 
   if (e.button === 0) {
-    // left click: pick up a carryable item, or tap a fixed one (faucet, test tube)
-    if (heldItem) return;
+    // left click: pick up a carryable item (more can be added to hand), or tap a fixed one (faucet, test tube)
     const target = raycastTarget(null);
     if (!target) return;
     if (target.userData.carryable) {
@@ -373,22 +447,35 @@ renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // ---------- Hover tooltip ----------
 function updateTooltip() {
+  const hover = controls.isLocked ? raycastTarget(null) : null;
+  updateLabels(hover);
   if (!controls.isLocked) {
     ui.setTooltip("");
     return;
   }
   if (heldItem) {
-    const target = raycastTarget(heldItem);
-    ui.setTooltip(target ? `내려놓기 → ${target.userData.name}` : "");
+    if (heldItem.userData.kind === "wearable") {
+      ui.setTooltip(`${heldItem.userData.name} [F 착용]`);
+      return;
+    }
+    ui.setTooltip(hover ? `내려놓기 → ${hover.userData.name}` : "");
     return;
   }
-  const target = raycastTarget(null);
-  if (!target) {
+  if (!hover) {
     ui.setTooltip("");
     return;
   }
-  const verb = target.userData.carryable ? "집기" : "상호작용";
-  ui.setTooltip(`${target.userData.name} [${verb}]`);
+  const verb = hover.userData.carryable ? "집기" : "상호작용";
+  ui.setTooltip(`${hover.userData.name} [${verb}]`);
+}
+
+// supply items sit close together, so their name labels only show on the item being looked at
+function updateLabels(hover) {
+  for (const o of registry.values()) {
+    if (!o.userData.carryable) continue;
+    const label = o.getObjectByName("label");
+    if (label) label.visible = o === hover;
+  }
 }
 
 // ---------- Flame flicker ----------

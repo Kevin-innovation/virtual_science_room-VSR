@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ROOM, DESK_A, DESK_B, SUPPLY_TABLE, SINK_A, SINK_B, SHOWER } from "./constants.js";
+import { ROOM, DESK_A, DESK_B, SUPPLY_TABLE, SINK_A, SINK_B, SHOWER, scaleX } from "./constants.js";
 
 const SKY_BLUE = 0xaedcf0;
 const FLOOR_MAIN = 0xe7ebee;
@@ -103,8 +103,8 @@ export function buildRoom(scene) {
     glass.position.set(x, 2.5, ROOM.minZ + 0.09);
     group.add(glass);
   }
-  addWindow(-6.2);
-  addWindow(0.4);
+  addWindow(scaleX(-6.2));
+  addWindow(scaleX(0.4));
 
   // ---- Sinks (counter + basin + faucet) ----
   function addSink(cfg, id) {
@@ -248,9 +248,9 @@ export function buildRoom(scene) {
     bulb.position.set(x, ROOM.wallHeight - 0.1, z);
     group.add(bulb);
   }
-  addCeilingLamp(-4, 0);
-  addCeilingLamp(4, 0);
-  addCeilingLamp(12, 0);
+  addCeilingLamp(scaleX(-4), 0);
+  addCeilingLamp(scaleX(4), 0);
+  addCeilingLamp(scaleX(12), 0);
 
   return {
     colliders,
