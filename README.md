@@ -150,8 +150,11 @@ Three.js 기본 좌표계(오른손 좌표계, Y-up, 카메라 기본 정면 = `
 
 ### 6.3 회전 (wheel, 들고 있는 동안만)
 
-`heldItem.rotation.y += e.deltaY * 0.0025` — 휠을 굴릴수록 들고 있는 물체가 Y축을 중심으로
-회전합니다. 선택적 기능이며 실험 단계 판정에는 영향을 주지 않습니다(자유 회전).
+- **Q / E** — 들고 있는 물체를 Y축 중심으로 좌우 회전 (`updateHeldRotation`)
+- **마우스 휠** — `heldItem.rotation.x += e.deltaY * 0.0025` — X축 중심으로 상하 회전
+
+선택적 기능이며 실험 단계 판정에는 영향을 주지 않습니다(자유 회전).
+Shift를 누르면 달리기(`RUN_SPEED`)가 됩니다.
 
 ### 6.4 놓기 / 사용 (우클릭, mousedown button 2 → `releaseHeld()`)
 

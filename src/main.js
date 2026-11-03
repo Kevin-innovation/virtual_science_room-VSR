@@ -4,7 +4,7 @@ import { buildRoom } from "./room.js";
 import { buildItems } from "./items.js";
 import { createExperiment } from "./experiment.js";
 import * as ui from "./ui.js";
-import { SPAWN, PLAYER_RADIUS, REACH } from "./constants.js";
+import { ROOM, SPAWN, PLAYER_RADIUS, REACH } from "./constants.js";
 
 const app = document.getElementById("app");
 
@@ -57,7 +57,7 @@ controls.addEventListener("lock", () => blocker.classList.add("hidden"));
 controls.addEventListener("unlock", () => blocker.classList.remove("hidden"));
 
 // ---------- Movement ----------
-const keys = { w: false, a: false, s: false, d: false };
+const keys = { w: false, a: false, s: false, d: false, q: false, e: false, shift: false };
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (k in keys) keys[k] = true;
@@ -68,6 +68,7 @@ window.addEventListener("keyup", (e) => {
 });
 
 const MOVE_SPEED = 3.4;
+const RUN_SPEED = 6.0;
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
@@ -100,8 +101,9 @@ function updateMovement(dt) {
     mz /= len;
   }
 
-  const dx = (_forward.x * mz + _right.x * mx) * MOVE_SPEED * dt;
-  const dz = (_forward.z * mz + _right.z * mx) * MOVE_SPEED * dt;
+  const speed = keys.shift ? RUN_SPEED : MOVE_SPEED;
+  const dx = (_forward.x * mz + _right.x * mx) * speed * dt;
+  const dz = (_forward.z * mz + _right.z * mx) * speed * dt;
 
   const obj = controls.getObject();
   const newX = obj.position.x + dx;
@@ -145,6 +147,8 @@ function raycastTarget(excludeItem) {
 }
 
 function pickUp(item) {
+  // an item mid-pour belongs to the animation until it lands
+  if (pours.some((p) => p.item === item)) return;
   // cancel any in-progress fall if the player catches it off a surface
   const fallIdx = fallingItems.findIndex((f) => f.obj === item);
   if (fallIdx !== -1) fallingItems.splice(fallIdx, 1);
@@ -167,6 +171,15 @@ function disableInteraction(obj) {
 const fallingItems = []; // { obj, vy, startY, breakable }
 const GRAVITY = -9.8;
 const BREAK_FALL_HEIGHT = 0.5;
+// Fixed fixtures (lamp, tripod, tubes, sink, rack) have no ground surface, so a
+// straight drop onto them would fall right through. Land just in front instead.
+const FIXTURE_DROP_OFFSET = 0.2;
+const DROP_MARGIN = PLAYER_RADIUS;
+
+function clampToRoom(pos) {
+  pos.x = THREE.MathUtils.clamp(pos.x, ROOM.minX + DROP_MARGIN, ROOM.maxX - DROP_MARGIN);
+  pos.z = THREE.MathUtils.clamp(pos.z, ROOM.minZ + DROP_MARGIN, ROOM.maxZ - DROP_MARGIN);
+}
 const downRaycaster = new THREE.Raycaster();
 const DOWN = new THREE.Vector3(0, -1, 0);
 
@@ -231,6 +244,50 @@ function updateFalling(dt) {
   }
 }
 
+// ---------- Pour animation (solution / indicator into a test tube) ----------
+const pours = []; // { item, target, t, from, rot0, pose, tp }
+const POUR_IN = 0.25; // seconds to move over the tube
+const POUR_HOLD = 0.8; // seconds of tilting
+const POUR_TILT = 0.5; // radians
+const POUR_REACH = 0.25; // bottle mouth height above its origin
+
+function startPour(item, target) {
+  const tp = new THREE.Vector3();
+  target.getWorldPosition(tp);
+  // tilt the bottle so its mouth (not its base) ends up above the tube
+  const pose = new THREE.Vector3(tp.x + POUR_REACH * Math.sin(POUR_TILT), tp.y + 0.3, tp.z);
+  pours.push({ item, target, t: 0, from: item.position.clone(), rot0: item.rotation.z, pose, tp });
+}
+
+function updatePours(dt) {
+  for (let i = pours.length - 1; i >= 0; i--) {
+    const p = pours[i];
+    p.t += dt;
+    if (p.t < POUR_IN) {
+      const k = p.t / POUR_IN;
+      p.item.position.lerpVectors(p.from, p.pose, k);
+      p.item.rotation.z = p.rot0 + (POUR_TILT - p.rot0) * k;
+    } else if (p.t < POUR_IN + POUR_HOLD) {
+      p.item.position.copy(p.pose);
+      p.item.rotation.z = POUR_TILT + Math.sin((p.t - POUR_IN) * 12) * 0.12;
+    } else {
+      // done pouring: set the bottle down beside the tube so it does not clip through it
+      pours.splice(i, 1);
+      p.item.rotation.z = 0;
+      p.item.position.set(p.tp.x, p.pose.y, p.tp.z + FIXTURE_DROP_OFFSET);
+      startFalling(p.item, !!p.item.userData.breakable);
+    }
+  }
+}
+
+// Q/E turn the held item left/right (around Y); scroll tilts it up/down (around X)
+const HELD_TURN_SPEED = 2.5; // radians per second
+function updateHeldRotation(dt) {
+  if (!heldItem) return;
+  if (keys.q) heldItem.rotation.y += HELD_TURN_SPEED * dt;
+  if (keys.e) heldItem.rotation.y -= HELD_TURN_SPEED * dt;
+}
+
 function releaseHeld() {
   if (!heldItem) return;
   const item = heldItem;
@@ -256,12 +313,17 @@ function releaseHeld() {
     item.position.copy(result.snapWorldPosition);
     return;
   }
+  if (result.handled && result.pour && target) {
+    startPour(item, target);
+    return;
+  }
 
   if (target) {
     const tp = new THREE.Vector3();
     target.getWorldPosition(tp);
     item.position.x = tp.x;
-    item.position.z = tp.z;
+    // non-carryable targets have no surface to land on; drop in front of them
+    item.position.z = target.userData.carryable ? tp.z : tp.z + FIXTURE_DROP_OFFSET;
   } else {
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
@@ -269,6 +331,7 @@ function releaseHeld() {
     item.position.x = dropPoint.x;
     item.position.z = dropPoint.z;
   }
+  clampToRoom(item.position);
   startFalling(item, !!item.userData.breakable);
 }
 
@@ -300,7 +363,7 @@ renderer.domElement.addEventListener(
   (e) => {
     if (!heldItem || !controls.isLocked) return;
     e.preventDefault();
-    heldItem.rotation.y += e.deltaY * 0.0025;
+    heldItem.rotation.x += e.deltaY * 0.0025;
   },
   { passive: false }
 );
@@ -361,7 +424,9 @@ function animate() {
   const t = clock.elapsedTime;
 
   updateMovement(dt);
+  updateHeldRotation(dt);
   experiment.update(dt);
+  updatePours(dt);
   updateFalling(dt);
   animateFlame(t);
   updateBurnCheck(t);
