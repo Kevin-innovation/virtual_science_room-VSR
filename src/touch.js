@@ -1,9 +1,16 @@
-// On-screen controls for touch devices: joystick (move), drag (look), and action buttons.
-// Left-handed mode mirrors the layout so the joystick and buttons swap sides.
-import { joy, hold, runToggle } from "./input.js";
+// Touch controls (PART_5): a compact set of round buttons so the view stays draggable.
+//   - move joystick (bottom, one side)
+//   - rotation stick: drag left/right to turn the held item, up/down to tilt it
+//   - action button: 집기/놓기 (tap). Long-press while holding to add one more item.
+//   - run toggle
+//   - top-right: left-handed mode (mirrors the joystick and buttons to the other side)
+// Every control is its own round element, so each one's touch area is exactly its circle.
+import { joy, rotStick, runToggle } from "./input.js";
 
 const LEFTY_KEY = "vsr-lefty-mode";
-const JOY_RADIUS = 55;
+const JOY_RADIUS = 48;
+const ROT_RADIUS = 40;
+const LONG_PRESS_MS = 450;
 const TOUCH_LOOK_SENS = 0.006;
 
 let lefty = false;
@@ -27,11 +34,55 @@ function saveLefty() {
 
 export function applyLefty() {
   document.body.classList.toggle("lefty", lefty);
+  const label = `왼손잡이 모드: ${lefty ? "ON" : "OFF"}`;
+  const top = document.getElementById("lefty-top");
+  if (top) top.textContent = lefty ? "왼손 ON" : "왼손";
   const btn = document.getElementById("lefty-btn");
-  if (btn) btn.textContent = `왼손잡이 모드: ${lefty ? "ON" : "OFF"}`;
+  if (btn) btn.textContent = label;
 }
 
-export function setupTouch({ controls, onPrimary, onSecondary, onView, onLeftyChange }) {
+// Drag a round knob inside its ring; writes the normalised position into `out`.
+function bindStick(baseEl, knobEl, radius, out, onMove) {
+  let id = null;
+  let cx = 0;
+  let cy = 0;
+  const move = (e) => {
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const len = Math.hypot(dx, dy);
+    if (len > radius) {
+      dx *= radius / len;
+      dy *= radius / len;
+    }
+    out.x = dx / radius;
+    out.y = -dy / radius; // screen up is positive
+    knobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    if (onMove) onMove();
+  };
+  baseEl.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    id = e.pointerId;
+    baseEl.setPointerCapture(e.pointerId);
+    const r = baseEl.getBoundingClientRect();
+    cx = r.left + r.width / 2;
+    cy = r.top + r.height / 2;
+    move(e);
+  });
+  baseEl.addEventListener("pointermove", (e) => {
+    if (e.pointerId === id) move(e);
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    out.x = 0;
+    out.y = 0;
+    knobEl.style.transform = "translate(-50%, -50%)";
+  };
+  baseEl.addEventListener("pointerup", end);
+  baseEl.addEventListener("pointercancel", end);
+}
+
+export function setupTouch({ controls, onTap, onLongPress, onLeftyChange }) {
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
   controls.setTouch(isTouch);
   document.body.classList.toggle("is-touch", isTouch);
@@ -41,97 +92,59 @@ export function setupTouch({ controls, onPrimary, onSecondary, onView, onLeftyCh
   document.getElementById("touch-ui").classList.remove("hidden");
   document.getElementById("lefty-row").classList.remove("hidden");
 
-  const runBtn = document.querySelector('[data-act="run"]');
-
-  // Action buttons fire on press (not on release) so they respond immediately.
-  for (const btn of document.querySelectorAll("[data-act]")) {
-    btn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      switch (btn.dataset.act) {
-        case "primary":
-          onPrimary();
-          break;
-        case "secondary":
-          onSecondary();
-          break;
-        case "view":
-          onView();
-          break;
-        case "run":
-          runToggle.on = !runToggle.on;
-          runBtn.classList.toggle("on", runToggle.on);
-          break;
-        case "lefty":
-          lefty = !lefty;
-          saveLefty();
-          applyLefty();
-          onLeftyChange();
-          break;
-        default:
-          break;
-      }
-    });
-  }
-
-  // Hold buttons (turn / tilt) act only while pressed.
-  for (const btn of document.querySelectorAll("[data-hold]")) {
-    const key = btn.dataset.hold;
-    const release = () => {
-      hold[key] = false;
-      btn.classList.remove("on");
-    };
-    btn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      hold[key] = true;
-      btn.classList.add("on");
-      btn.setPointerCapture?.(e.pointerId);
-    });
-    btn.addEventListener("pointerup", release);
-    btn.addEventListener("pointercancel", release);
-    btn.addEventListener("lostpointercapture", release);
-  }
-
-  // Joystick: the knob follows the thumb, clamped to the ring.
-  const stick = document.getElementById("joystick");
-  const knob = document.getElementById("joy-knob");
-  let stickId = null;
-  let cx = 0;
-  let cy = 0;
-  const moveKnob = (e) => {
-    let dx = e.clientX - cx;
-    let dy = e.clientY - cy;
-    const len = Math.hypot(dx, dy);
-    if (len > JOY_RADIUS) {
-      dx *= JOY_RADIUS / len;
-      dy *= JOY_RADIUS / len;
-    }
-    joy.x = dx / JOY_RADIUS;
-    joy.y = -dy / JOY_RADIUS; // screen up is forward
-    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  const toggleLefty = () => {
+    lefty = !lefty;
+    saveLefty();
+    applyLefty();
+    onLeftyChange();
   };
-  stick.addEventListener("pointerdown", (e) => {
+  document.getElementById("lefty-top").addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    stickId = e.pointerId;
-    stick.setPointerCapture(e.pointerId);
-    const r = stick.getBoundingClientRect();
-    cx = r.left + r.width / 2;
-    cy = r.top + r.height / 2;
-    moveKnob(e);
+    toggleLefty();
   });
-  stick.addEventListener("pointermove", (e) => {
-    if (e.pointerId === stickId) moveKnob(e);
-  });
-  const endStick = (e) => {
-    if (e.pointerId !== stickId) return;
-    stickId = null;
-    joy.x = 0;
-    joy.y = 0;
-    knob.style.transform = "translate(-50%, -50%)";
-  };
-  stick.addEventListener("pointerup", endStick);
-  stick.addEventListener("pointercancel", endStick);
+  document.getElementById("lefty-btn").addEventListener("click", toggleLefty);
 
-  // Dragging anywhere else on the view turns the camera.
+  // move joystick
+  bindStick(document.getElementById("joystick"), document.getElementById("joy-knob"), JOY_RADIUS, joy);
+
+  // rotation stick: the item's turn/tilt is read every frame from rotStick
+  bindStick(document.getElementById("rot-stick"), document.getElementById("rot-knob"), ROT_RADIUS, rotStick);
+
+  // action button: tap = 집기/놓기; long press = pick up one more item while holding
+  const act = document.getElementById("act-btn");
+  let actId = null;
+  let actTimer = null;
+  let actLong = false;
+  act.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    actId = e.pointerId;
+    actLong = false;
+    act.setPointerCapture(e.pointerId);
+    act.classList.add("on");
+    actTimer = setTimeout(() => {
+      actLong = true;
+      onLongPress();
+    }, LONG_PRESS_MS);
+  });
+  const endAct = (e, fire) => {
+    if (e.pointerId !== actId) return;
+    clearTimeout(actTimer);
+    act.classList.remove("on");
+    actId = null;
+    if (fire && !actLong) onTap();
+  };
+  act.addEventListener("pointerup", (e) => endAct(e, true));
+  act.addEventListener("pointercancel", (e) => endAct(e, false));
+
+  // run toggle
+  const run = document.getElementById("run-btn");
+  run.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    runToggle.on = !runToggle.on;
+    run.classList.toggle("on", runToggle.on);
+  });
+
+  // camera drag: anywhere on the view that no button covers
   const look = document.getElementById("touch-look");
   let lookId = null;
   let lx = 0;
@@ -154,14 +167,6 @@ export function setupTouch({ controls, onPrimary, onSecondary, onView, onLeftyCh
   };
   look.addEventListener("pointerup", endLook);
   look.addEventListener("pointercancel", endLook);
-
-  // Left-handed toggle on the start screen
-  document.getElementById("lefty-btn").addEventListener("click", () => {
-    lefty = !lefty;
-    saveLefty();
-    applyLefty();
-    onLeftyChange();
-  });
 
   return { isTouch };
 }

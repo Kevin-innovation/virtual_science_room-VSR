@@ -81,6 +81,37 @@ export function createExperiment(registry) {
     );
   }
 
+  // PART_5: a broken ingredient must be recoverable. Losing the beaker's contents before the
+  // extract is ready, or the indicator while it is being used, rewinds the experiment to the
+  // cutting step so the cabbage can be fetched again. Returns true when a rewind happened.
+  function handleBreak(id) {
+    const s = state.stepIndex;
+    const beakerLost = id === "beaker1" && s >= 1 && s <= 3;
+    const indicatorLost = id === "indicator_bottle" && (s === 4 || s === 5);
+    if (!beakerLost && !indicatorLost) return false;
+    rewind();
+    return true;
+  }
+
+  function rewind() {
+    state.stepIndex = 0;
+    state.heating = false;
+    state.heatProgress = 0;
+    for (let i = 1; i <= 6; i++) {
+      const tube = get(`tube${i}`);
+      tube.userData.solution = null;
+      tube.userData.hasIndicator = false;
+      tube.userData.observed = false;
+    }
+    const beaker = get("beaker1");
+    beaker.userData.hasCabbage = false;
+    beaker.userData.hasWater = false;
+    beaker.userData.isExtract = false;
+    get("indicator_bottle").userData.filled = false;
+    ui.toast("재료가 깨져 처음부터 다시 준비해야 합니다. 양배추를 다시 잘라 주세요.", 3600);
+    refreshUI();
+  }
+
   function advanceStep() {
     state.stepIndex++;
     refreshUI();
@@ -108,7 +139,7 @@ export function createExperiment(registry) {
         break;
       }
       case 1: {
-        if (heldId === "beaker1" && (targetId === "sink_a_faucet" || targetId === "sink_b_faucet")) {
+        if (heldId === "beaker1" && (targetId === "sink_faucet")) {
           const beaker1 = get("beaker1");
           if (!beaker1.userData.hasCabbage) {
             ui.toast("먼저 양배추를 잘라 비커에 담아야 합니다.");
@@ -267,7 +298,7 @@ export function createExperiment(registry) {
       return { handled: true, motion: { type: "observe" } };
     }
 
-    if (targetId === "sink_a_faucet" || targetId === "sink_b_faucet") {
+    if (targetId === "sink_faucet") {
       if (state.stepIndex < 7) {
         ui.toast("아직 실험이 끝나지 않았습니다.");
         return { handled: false };
@@ -310,5 +341,5 @@ export function createExperiment(registry) {
 
   refreshUI();
 
-  return { state, tryUse, tryTap, update };
+  return { state, tryUse, tryTap, update, handleBreak };
 }

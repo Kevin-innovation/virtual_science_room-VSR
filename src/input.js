@@ -1,9 +1,9 @@
 // One shared input state for keyboard and touch, so both drive the same actions.
 const keys = Object.create(null);
 
-// Touch holds (buttons pressed on screen) and the virtual joystick.
-export const hold = { turnL: false, turnR: false, tiltUp: false, tiltDown: false };
+// Touch: the virtual joystick (movement) and the rotation stick (held item).
 export const joy = { x: 0, y: 0 }; // x: right(+)/left(-), y: forward(+)/back(-), each -1..1
+export const rotStick = { x: 0, y: 0 }; // x: left(-)/right(+) turns, y: up(+)/down(-) tilts
 export const runToggle = { on: false }; // on-screen "달리기" button
 
 const MOVE_KEYS = {
@@ -45,20 +45,17 @@ export function moveAxes() {
   return { x: clamp1(x), y: clamp1(y) };
 }
 
-// +1 turns the held item left (Q), -1 turns it right (E).
+// +1 turns the held item left (Q), -1 turns it right (E). The rotation stick is analog.
 export function turnAxis() {
   let t = 0;
-  if (keys.q || hold.turnL) t += 1;
-  if (keys.e || hold.turnR) t -= 1;
-  return t;
+  if (keys.q) t += 1;
+  if (keys.e) t -= 1;
+  return clamp1(t - rotStick.x);
 }
 
-// +1 tilts the held item up, -1 tilts it down.
+// +1 tilts the held item up, -1 tilts it down (keys: wheel-equivalent for keyboard users).
 export function tiltAxis() {
-  let t = 0;
-  if (hold.tiltUp) t += 1;
-  if (hold.tiltDown) t -= 1;
-  return t;
+  return clamp1(rotStick.y);
 }
 
 export function isRunning() {

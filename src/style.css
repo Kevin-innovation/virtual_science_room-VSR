@@ -8,7 +8,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  background: #f4f8fb;
   font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   user-select: none;
 }
@@ -21,6 +21,12 @@ html, body {
 #app canvas {
   display: block;
 }
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- start screen ---------- */
 
 #blocker {
   position: fixed;
@@ -47,36 +53,6 @@ html, body {
   word-break: keep-all;
   overflow-wrap: break-word;
   text-wrap: balance;
-}
-
-.nw {
-  white-space: nowrap;
-}
-
-#instructions .guide {
-  text-align: left;
-  background: rgba(79, 195, 247, 0.12);
-  border: 1px solid rgba(79, 195, 247, 0.35);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin-bottom: 16px;
-}
-
-#instructions .guide h2 {
-  font-size: 16px;
-  color: #4fc3f7;
-  margin-bottom: 8px;
-}
-
-#instructions .guide ol {
-  padding-left: 20px;
-  font-size: 14px;
-  line-height: 1.7;
-  opacity: 0.92;
-}
-
-#instructions .guide li + li {
-  margin-top: 4px;
 }
 
 #instructions h1 {
@@ -106,6 +82,46 @@ html, body {
   background: #81d4fa;
 }
 
+#lefty-row {
+  margin-bottom: 14px;
+}
+
+#lefty-btn {
+  font-size: 14px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.guide {
+  text-align: left;
+  background: rgba(79, 195, 247, 0.12);
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.guide h2 {
+  font-size: 16px;
+  color: #4fc3f7;
+  margin-bottom: 8px;
+}
+
+.guide ol {
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+
+.guide li + li {
+  margin-top: 4px;
+}
+
 .controls-help {
   text-align: left;
   font-size: 13px;
@@ -114,6 +130,24 @@ html, body {
   border-top: 1px solid rgba(255, 255, 255, 0.2);
   padding-top: 12px;
 }
+
+.nw {
+  white-space: nowrap;
+}
+
+.touch-only {
+  display: none;
+}
+
+body.is-touch .touch-only {
+  display: block;
+}
+
+body.is-touch .pc-only {
+  display: none;
+}
+
+/* ---------- HUD ---------- */
 
 #crosshair {
   position: fixed;
@@ -157,6 +191,7 @@ html, body {
   min-width: 320px;
   max-width: 70vw;
   border: 1px solid rgba(79, 195, 247, 0.5);
+  pointer-events: none;
 }
 
 #step-index {
@@ -184,6 +219,7 @@ html, body {
   line-height: 1.9;
   z-index: 20;
   max-width: 220px;
+  pointer-events: none;
 }
 
 #checklist .done {
@@ -232,6 +268,36 @@ html, body {
   opacity: 1;
 }
 
+/* ---------- emergency shower ---------- */
+
+#shower-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 35;
+  background:
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0) 0 14px, rgba(255, 255, 255, 0.18) 14px 16px),
+    linear-gradient(rgba(120, 200, 255, 0.35), rgba(40, 120, 220, 0.25));
+  animation: shower-drift 1.2s linear infinite;
+}
+
+#shower-overlay.show {
+  opacity: 1;
+}
+
+@keyframes shower-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 0 40px, 0 0;
+  }
+}
+
+/* ---------- end screen ---------- */
+
 #end-screen {
   position: fixed;
   inset: 0;
@@ -272,64 +338,12 @@ html, body {
   margin-top: 10px;
 }
 
-/* ---------- helpers ---------- */
+/* ---------- touch controls (PART_5: compact, round, exact hit areas) ---------- */
 
-.hidden {
-  display: none !important;
+body.is-touch #checklist {
+  top: 56px;
 }
 
-.touch-only {
-  display: none;
-}
-
-body.is-touch .touch-only {
-  display: block;
-}
-
-body.is-touch .pc-only {
-  display: none;
-}
-
-/* the status overlays never take taps away from the touch controls */
-#step-banner,
-#checklist,
-#tooltip,
-#toast,
-#crosshair {
-  pointer-events: none;
-}
-
-/* ---------- shower / wash ---------- */
-
-#shower-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  z-index: 35;
-  background:
-    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.0) 0 14px, rgba(255, 255, 255, 0.18) 14px 16px),
-    linear-gradient(rgba(120, 200, 255, 0.35), rgba(40, 120, 220, 0.25));
-  animation: shower-drift 1.2s linear infinite;
-}
-
-#shower-overlay.show {
-  opacity: 1;
-}
-
-@keyframes shower-drift {
-  from {
-    background-position: 0 0, 0 0;
-  }
-  to {
-    background-position: 0 40px, 0 0;
-  }
-}
-
-/* ---------- touch controls ---------- */
-
-/* full-view drag area; sits under the buttons and joystick */
 #touch-look {
   position: fixed;
   inset: 0;
@@ -342,6 +356,7 @@ body.is-touch #touch-look {
   display: block;
 }
 
+/* the layer itself takes no touches; only its round controls do */
 #touch-ui {
   position: fixed;
   inset: 0;
@@ -349,114 +364,170 @@ body.is-touch #touch-look {
   pointer-events: none;
 }
 
-#joystick {
+.ctl {
   position: absolute;
-  left: 24px;
-  bottom: 24px;
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 2px solid rgba(255, 255, 255, 0.5);
   pointer-events: auto;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#joy-knob {
+/* rings: the stick bases */
+.ring {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.42);
+}
+
+.knob {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 56px;
-  height: 56px;
+  width: 42%;
+  height: 42%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.78);
   transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-#touch-buttons {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  display: grid;
-  grid-template-columns: repeat(3, 84px);
-  gap: 8px;
-}
-
-.tbtn {
-  pointer-events: auto;
-  touch-action: none;
-  min-height: 52px;
+/* round buttons: the hit area is exactly the circle */
+.round {
   border: 0;
-  border-radius: 12px;
-  background: rgba(20, 40, 60, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   color: #fff;
-  font-size: 14px;
   font-weight: 700;
-  -webkit-user-select: none;
-  user-select: none;
+  line-height: 1.2;
+  padding: 0;
+  background: rgba(20, 40, 60, 0.62);
 }
 
-.tbtn.big {
-  background: rgba(33, 150, 243, 0.85);
-  min-height: 60px;
-}
-
-.tbtn.on {
+.round.on {
   background: rgba(255, 152, 0, 0.92);
 }
 
-.tbtn small {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-}
-
-/* left-handed: joystick and buttons swap sides */
-body.lefty #joystick {
-  left: auto;
-  right: 24px;
-}
-
-body.lefty #touch-buttons {
-  right: auto;
-  left: 18px;
-}
-
-#lefty-row {
-  margin-bottom: 14px;
-}
-
-#lefty-btn {
-  font-size: 14px;
-  padding: 8px 18px;
+.pill {
+  top: 10px;
+  right: 10px;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  background: transparent;
   color: #fff;
-  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(20, 40, 60, 0.62);
+  line-height: 30px;
 }
 
-/* phones: smaller panels, status text takes less room */
+/* move stick: bottom-left (right side when left-handed) */
+.move {
+  left: 14px;
+  bottom: 14px;
+  width: 112px;
+  height: 112px;
+}
+
+/* action cluster: bottom-right (left side when left-handed) */
+.act {
+  right: 14px;
+  bottom: 14px;
+  width: 84px;
+  height: 84px;
+  background: rgba(33, 150, 243, 0.9);
+  font-size: 14px;
+}
+
+.rot {
+  right: 110px;
+  bottom: 18px;
+  width: 84px;
+  height: 84px;
+}
+
+.run {
+  right: 26px;
+  bottom: 110px;
+  width: 54px;
+  height: 54px;
+  font-size: 11px;
+}
+
+body.lefty .move {
+  left: auto;
+  right: 14px;
+}
+
+body.lefty .act {
+  right: auto;
+  left: 14px;
+}
+
+body.lefty .rot {
+  right: auto;
+  left: 110px;
+}
+
+body.lefty .run {
+  right: auto;
+  left: 26px;
+}
+
+/* phones: smaller controls, status text takes less room */
 @media (max-width: 720px) {
-  #touch-buttons {
-    grid-template-columns: repeat(3, 72px);
-    right: 10px;
-    bottom: 10px;
-  }
-
-  body.lefty #touch-buttons {
-    left: 10px;
-  }
-
-  #joystick {
-    width: 116px;
-    height: 116px;
+  .move {
+    width: 100px;
+    height: 100px;
     left: 10px;
     bottom: 10px;
   }
 
-  body.lefty #joystick {
+  .act {
+    width: 74px;
+    height: 74px;
     right: 10px;
+    bottom: 10px;
+    font-size: 13px;
+  }
+
+  .rot {
+    width: 76px;
+    height: 76px;
+    right: 96px;
+    bottom: 14px;
+  }
+
+  .run {
+    width: 48px;
+    height: 48px;
+    right: 22px;
+    bottom: 96px;
+    font-size: 10px;
+  }
+
+  body.lefty .move {
+    left: auto;
+    right: 10px;
+  }
+
+  body.lefty .act {
+    left: 10px;
+    right: auto;
+  }
+
+  body.lefty .rot {
+    left: 96px;
+    right: auto;
+  }
+
+  body.lefty .run {
+    left: 22px;
+    right: auto;
   }
 
   #step-banner {

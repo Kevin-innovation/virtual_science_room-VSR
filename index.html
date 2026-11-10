@@ -27,12 +27,14 @@
           </ol>
         </div>
         <div class="controls-help">
-          <p class="pc-only"><b>이동</b> W A S D (또는 방향키) · <b>시점</b> 마우스 · <b>3인칭</b> V</p>
+          <p class="pc-only"><b>이동</b> W A S D (또는 방향키) · <b>시점</b> 마우스</p>
           <p class="pc-only"><b>집기 / 상호작용</b> 좌클릭 · <b>놓기 / 사용</b> 우클릭</p>
-          <p class="touch-only"><b>이동</b> 왼쪽 아래 조이스틱 · <b>시점</b> 화면 드래그</p>
-          <p class="touch-only"><b>집기 / 놓기</b> 오른쪽 아래 버튼 (왼손잡이 모드는 왼쪽) · <b>3인칭</b> 버튼</p>
-          <p><b>회전</b> Q / E (또는 ↺ ↻) · <span class="nw">마우스 휠</span> (또는 ▲ ▼) · <b>달리기</b> Shift</p>
-          <p><b>주의</b> 불 가까이 가면 화상을 입습니다. 점적병을 깨뜨리면 비상샤워기가 작동합니다.</p>
+          <p class="touch-only"><b>이동</b> 왼쪽 아래 원형 조이스틱 · <b>시점</b> 화면 드래그</p>
+          <p class="touch-only"><b>집기 / 놓기</b> 가운데 원형 버튼 (길게 누르면 물건을 하나 더 집음)</p>
+          <p class="touch-only"><b>회전</b> 회전 스틱을 좌우·상하로 끌기 · <b>달리기</b> 버튼 · 오른쪽 위 <b>왼손</b>으로 좌우 반전</p>
+          <p><b>회전</b> Q / E · 마우스 휠 (기울임) · <b>달리기</b> Shift</p>
+          <p><b>주의</b> 불 가까이 가면 화상을 입습니다. 여러 병을 들고 달리면 넘어져 깨집니다.</p>
+          <p><b>비상샤워기</b> 깨지거나 화상을 입으면 샤워기 가까이 가서 노란 버튼을 누르고 커튼 안에서 씻으세요.</p>
           <p class="touch-only">가로 화면으로 보면 더 편합니다.</p>
         </div>
       </div>
@@ -55,18 +57,13 @@
     <div id="toast"></div>
 
     <div id="touch-ui" class="hidden">
-      <div id="joystick"><div id="joy-knob"></div></div>
-      <div id="touch-buttons">
-        <button class="tbtn big" type="button" data-act="primary">집기<small>/ 상호작용</small></button>
-        <button class="tbtn big" type="button" data-act="secondary">놓기<small>/ 사용</small></button>
-        <button class="tbtn" type="button" data-hold="turnL">↺ 회전</button>
-        <button class="tbtn" type="button" data-hold="turnR">↻ 회전</button>
-        <button class="tbtn" type="button" data-hold="tiltUp">▲ 기울임</button>
-        <button class="tbtn" type="button" data-hold="tiltDown">▼ 기울임</button>
-        <button class="tbtn" type="button" data-act="run">달리기</button>
-        <button class="tbtn" type="button" data-act="view">3인칭</button>
-        <button class="tbtn" type="button" data-act="lefty">왼손</button>
-      </div>
+      <button id="lefty-top" class="ctl pill" type="button">왼손</button>
+
+      <div id="joystick" class="ctl ring move"><div id="joy-knob" class="knob"></div></div>
+
+      <div id="rot-stick" class="ctl ring rot"><div id="rot-knob" class="knob"></div></div>
+      <button id="act-btn" class="ctl round act" type="button">집기<br>/놓기</button>
+      <button id="run-btn" class="ctl round run" type="button">달리기</button>
     </div>
 
     <div id="end-screen" class="hidden">
