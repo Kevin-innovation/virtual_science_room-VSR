@@ -13,20 +13,26 @@ const PH_COLOR = {
   sol_naoh: 0xfdd835, // 강염기성 - 노랑
 };
 
-const HEAT_TIME = 4.0; // seconds
-const WASH_TIME = 2.2; // seconds
+export const HEAT_TIME = 4.0; // seconds
+export const WASH_TIME = 2.2; // seconds
+
+const BEAKER_WATER = 0xbfe3c0; // beaker with cabbage + water
+const CABBAGE_EXTRACT = 0x6a3e86; // strained red-cabbage indicator
+const SOLUTION_TINT = 0xe3f2fd; // a solution in a tube, before the indicator
 
 const STEP_DEFS = [
   { title: "1단계", text: "가위를 들고 붉은 양배추를 잘라 비커에 담으세요." },
   { title: "2단계", text: "비커(양배추가 든)를 들고 싱크대 수도꼭지에 가져가 물을 부으세요." },
   { title: "3단계", text: "점화기로 알코올램프에 불을 붙인 뒤, 비커를 들고 쇠그물(삼발이) 위에 올려 가열하세요." },
-  { title: "4단계", text: "충분히 우려낸 비커를 들고 빈 점적병에 가져가 체로 걸러 담으세요." },
+  { title: "4단계", text: "충분히 우려낸 비커를 들고 빈 점적병을 조준해 옮겨 담으세요. (체는 자동으로 올라갑니다)" },
   { title: "5단계", text: "여러 가지 용액을 각각의 시험관에 약 1/3씩 넣으세요. (6개 모두)" },
   { title: "6단계", text: "지시약이 든 점적병을 들고 각 시험관에 떨어뜨리세요. (6개 모두)" },
   { title: "7단계", text: "시험관을 클릭해 흔들며 색깔 변화를 관찰하세요. (6개 모두)" },
   { title: "마무리", text: "싱크대로 이동해 수도꼭지를 클릭해 물을 튼 다음, 다시 클릭해 손을 씻으세요." },
 ];
 
+// Game logic only. Visuals are described as `motion` objects and played by effects.js,
+// so every change is shown as a process rather than appearing in one frame.
 export function createExperiment(registry) {
   const state = {
     stepIndex: 0,
@@ -51,6 +57,14 @@ export function createExperiment(registry) {
     return c;
   }
 
+  function countFilledSolution() {
+    let c = 0;
+    for (let i = 1; i <= 6; i++) {
+      if (get(`tube${i}`).userData.solution) c++;
+    }
+    return c;
+  }
+
   function refreshUI() {
     const def = STEP_DEFS[Math.min(state.stepIndex, STEP_DEFS.length - 1)];
     let text = def.text;
@@ -67,36 +81,14 @@ export function createExperiment(registry) {
     );
   }
 
-  function countFilledSolution() {
-    let c = 0;
-    for (let i = 1; i <= 6; i++) {
-      if (get(`tube${i}`).userData.solution) c++;
-    }
-    return c;
-  }
-
   function advanceStep() {
     state.stepIndex++;
     refreshUI();
   }
 
-  function setBeakerLiquid(beaker, visible, color, opacity = 0.85, heightScale = 1) {
-    const liquid = beaker.getObjectByName("liquid");
-    liquid.visible = visible;
-    if (color !== undefined) liquid.material.color.setHex(color);
-    liquid.material.opacity = opacity;
-    liquid.scale.y = heightScale;
-    liquid.position.y = 0.01 + 0.14 * heightScale;
-  }
-
-  function setTubeLiquid(tube, visible, color, opacity = 0.75) {
-    const liquid = tube.getObjectByName("liquid");
-    liquid.visible = visible;
-    if (color !== undefined) liquid.material.color.setHex(color);
-    liquid.material.opacity = opacity;
-  }
-
-  // Returns { handled, heldConsume, targetConsume, snapWorldPosition, pour }
+  // Returns { handled, targetConsume, motion }.
+  //   motion.after: "drop" (fall from the crosshair), "settle" (set down where it ends
+  //   up), or "stay" (remain where the motion left it).
   function tryUse(heldId, targetId) {
     if (!targetId || state.finished) return { handled: false };
     const held = get(heldId);
@@ -104,12 +96,14 @@ export function createExperiment(registry) {
     switch (state.stepIndex) {
       case 0: {
         if (heldId === "scissors" && targetId === "cabbage") {
-          const beaker1 = get("beaker1");
-          beaker1.userData.hasCabbage = true;
-          beaker1.getObjectByName("cabbageBits").visible = true;
+          get("beaker1").userData.hasCabbage = true;
           ui.toast("붉은 양배추를 잘라 비커에 담았습니다.");
           advanceStep();
-          return { handled: true, heldConsume: false, targetConsume: true };
+          return {
+            handled: true,
+            targetConsume: true,
+            motion: { type: "cut", after: "drop" },
+          };
         }
         break;
       }
@@ -121,21 +115,23 @@ export function createExperiment(registry) {
             return { handled: false };
           }
           beaker1.userData.hasWater = true;
-          setBeakerLiquid(beaker1, true, 0xbfe3c0, 0.75, 1);
-          ui.toast("비커에 물을 부었습니다.");
+          ui.toast("비커에 물을 붓고 있습니다...");
           advanceStep();
-          return { handled: true, heldConsume: false, targetConsume: false };
+          return {
+            handled: true,
+            motion: { type: "fill", level: 0.22, color: BEAKER_WATER, opacity: 0.75, duration: 1.6, keepOn: state.waterOn, after: "stay" },
+          };
         }
         break;
       }
       case 2: {
         if (heldId === "igniter" && (targetId === "alcohol_lamp" || targetId === "wire_mesh")) {
           state.lampLit = true;
-          const lamp = get("alcohol_lamp");
-          lamp.getObjectByName("flame").visible = true;
-          lamp.getObjectByName("flameLight").intensity = 1.1;
           ui.toast("알코올램프에 불을 붙였습니다. 화상에 주의하세요!");
-          return { handled: true, heldConsume: false, targetConsume: false };
+          return {
+            handled: true,
+            motion: { type: "ignite", after: "drop" },
+          };
         }
         if (heldId === "beaker1" && targetId === "wire_mesh") {
           const beaker1 = get("beaker1");
@@ -149,14 +145,11 @@ export function createExperiment(registry) {
           }
           state.heating = true;
           state.heatProgress = 0;
-          const tripod = get("wire_mesh");
-          const restPoint = tripod.getObjectByName("restPoint");
+          const rest = get("wire_mesh").getObjectByName("restPoint").getWorldPosition(new THREE.Vector3());
           ui.toast("가열을 시작합니다. 잠시만 기다리세요...");
           return {
             handled: true,
-            heldConsume: false, targetConsume: false,
-            snapWorldPosition: restPoint.getWorldPosition(new THREE.Vector3()),
-            tag: "heating",
+            motion: { type: "heat", rest, duration: HEAT_TIME, after: "stay" },
           };
         }
         break;
@@ -170,18 +163,25 @@ export function createExperiment(registry) {
           }
           const bottle = get("indicator_bottle");
           bottle.userData.filled = true;
-          bottle.getObjectByName("liquid").visible = true;
-          bottle.getObjectByName("liquid").material.color.setHex(0x6a3e86);
           ui.toast("체로 걸러 점적병에 지시약을 담았습니다.");
 
           beaker1.userData.hasCabbage = false;
           beaker1.userData.hasWater = false;
           beaker1.userData.isExtract = false;
-          beaker1.getObjectByName("cabbageBits").visible = false;
-          setBeakerLiquid(beaker1, false);
 
           advanceStep();
-          return { handled: true, heldConsume: false, targetConsume: false };
+          return {
+            handled: true,
+            motion: {
+              type: "pour",
+              filter: true,
+              dripColor: CABBAGE_EXTRACT,
+              targetColor: CABBAGE_EXTRACT,
+              targetOpacity: 0.9,
+              targetLevel: 0.1,
+              after: "settle",
+            },
+          };
         }
         break;
       }
@@ -193,7 +193,6 @@ export function createExperiment(registry) {
             return { handled: false };
           }
           tube.userData.solution = heldId;
-          setTubeLiquid(tube, true, 0xe3f2fd, 0.5);
           ui.toast(`${held.userData.name}을(를) ${tube.userData.name}에 넣었습니다.`);
           const filled = countFilledSolution();
           refreshUI();
@@ -201,7 +200,10 @@ export function createExperiment(registry) {
             ui.toast("여섯 시험관에 모두 용액을 넣었습니다!");
             advanceStep();
           }
-          return { handled: true, heldConsume: false, targetConsume: false, pour: true };
+          return {
+            handled: true,
+            motion: { type: "pour", targetColor: SOLUTION_TINT, targetOpacity: 0.5, targetLevel: 0.07, after: "settle" },
+          };
         }
         break;
       }
@@ -223,7 +225,6 @@ export function createExperiment(registry) {
           }
           tube.userData.hasIndicator = true;
           const color = PH_COLOR[tube.userData.solution] ?? 0xcccccc;
-          setTubeLiquid(tube, true, color, 0.85);
           ui.toast("지시약 다섯 방울을 떨어뜨렸습니다. 색이 변했어요!");
           const filled = countFilled("hasIndicator");
           refreshUI();
@@ -231,7 +232,10 @@ export function createExperiment(registry) {
             ui.toast("모든 시험관의 색이 변했습니다!");
             advanceStep();
           }
-          return { handled: true, heldConsume: false, targetConsume: false, pour: true };
+          return {
+            handled: true,
+            motion: { type: "pour", dripColor: CABBAGE_EXTRACT, targetColor: color, targetOpacity: 0.85, after: "settle" },
+          };
         }
         break;
       }
@@ -241,7 +245,7 @@ export function createExperiment(registry) {
     return { handled: false };
   }
 
-  // Direct tap (no held item required): faucet toggle, tube shake/observe, wash
+  // Direct tap (no held item required): faucet on, tube observe, wash.
   function tryTap(targetId) {
     if (!targetId || state.finished) return { handled: false };
 
@@ -260,7 +264,7 @@ export function createExperiment(registry) {
         ui.toast("관찰을 모두 마쳤습니다! 이제 싱크대로 이동해 손을 씻으세요.");
         advanceStep();
       }
-      return { handled: true, shake: true };
+      return { handled: true, motion: { type: "observe" } };
     }
 
     if (targetId === "sink_a_faucet" || targetId === "sink_b_faucet") {
@@ -271,13 +275,13 @@ export function createExperiment(registry) {
       if (!state.waterOn) {
         state.waterOn = true;
         ui.toast("물이 나옵니다. 다시 클릭해서 손을 씻으세요.");
-        return { handled: true, water: "on", sink: targetId };
+        return { handled: true, motion: { type: "faucet" } };
       }
       if (!state.washing) {
         state.washing = true;
         state.washProgress = 0;
         ui.toast("손을 씻는 중...");
-        return { handled: true, washing: true };
+        return { handled: true, motion: { type: "wash", duration: WASH_TIME } };
       }
     }
     return { handled: false };
@@ -288,9 +292,7 @@ export function createExperiment(registry) {
       state.heatProgress += dt;
       if (state.heatProgress >= HEAT_TIME) {
         state.heating = false;
-        const beaker1 = get("beaker1");
-        beaker1.userData.isExtract = true;
-        setBeakerLiquid(beaker1, true, 0x6a3e86, 0.85, 1);
+        get("beaker1").userData.isExtract = true;
         ui.toast("양배추 색깔이 충분히 우러났습니다!");
         advanceStep();
       }

@@ -5,6 +5,7 @@ const toastEl = document.getElementById("toast");
 const tooltipEl = document.getElementById("tooltip");
 const endScreenEl = document.getElementById("end-screen");
 const burnFlashEl = document.getElementById("burn-flash");
+const showerEl = document.getElementById("shower-overlay");
 
 let toastTimer = null;
 let burnTimer = null;
@@ -48,4 +49,9 @@ export function flashBurn() {
   burnFlashEl.classList.add("show");
   if (burnTimer) clearTimeout(burnTimer);
   burnTimer = setTimeout(() => burnFlashEl.classList.remove("show"), 350);
+}
+
+// Blue wash-over while the emergency shower is running
+export function setShowerOverlay(on) {
+  showerEl.classList.toggle("show", on);
 }

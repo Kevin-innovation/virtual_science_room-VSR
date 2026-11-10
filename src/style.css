@@ -42,7 +42,41 @@ html, body {
   background: rgba(20, 30, 45, 0.9);
   padding: 32px 40px;
   border-radius: 16px;
-  max-width: 480px;
+  max-width: 560px;
+  /* Korean: break between words, never inside one, and balance the lines to avoid a lone word */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+.nw {
+  white-space: nowrap;
+}
+
+#instructions .guide {
+  text-align: left;
+  background: rgba(79, 195, 247, 0.12);
+  border: 1px solid rgba(79, 195, 247, 0.35);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+#instructions .guide h2 {
+  font-size: 16px;
+  color: #4fc3f7;
+  margin-bottom: 8px;
+}
+
+#instructions .guide ol {
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  opacity: 0.92;
+}
+
+#instructions .guide li + li {
+  margin-top: 4px;
 }
 
 #instructions h1 {
@@ -236,4 +270,214 @@ html, body {
 .end-card .sub {
   opacity: 0.6;
   margin-top: 10px;
+}
+
+/* ---------- helpers ---------- */
+
+.hidden {
+  display: none !important;
+}
+
+.touch-only {
+  display: none;
+}
+
+body.is-touch .touch-only {
+  display: block;
+}
+
+body.is-touch .pc-only {
+  display: none;
+}
+
+/* the status overlays never take taps away from the touch controls */
+#step-banner,
+#checklist,
+#tooltip,
+#toast,
+#crosshair {
+  pointer-events: none;
+}
+
+/* ---------- shower / wash ---------- */
+
+#shower-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 35;
+  background:
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.0) 0 14px, rgba(255, 255, 255, 0.18) 14px 16px),
+    linear-gradient(rgba(120, 200, 255, 0.35), rgba(40, 120, 220, 0.25));
+  animation: shower-drift 1.2s linear infinite;
+}
+
+#shower-overlay.show {
+  opacity: 1;
+}
+
+@keyframes shower-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 0 40px, 0 0;
+  }
+}
+
+/* ---------- touch controls ---------- */
+
+/* full-view drag area; sits under the buttons and joystick */
+#touch-look {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  touch-action: none;
+  display: none;
+}
+
+body.is-touch #touch-look {
+  display: block;
+}
+
+#touch-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+#joystick {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  transform: translate(-50%, -50%);
+}
+
+#touch-buttons {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 84px);
+  gap: 8px;
+}
+
+.tbtn {
+  pointer-events: auto;
+  touch-action: none;
+  min-height: 52px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(20, 40, 60, 0.6);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tbtn.big {
+  background: rgba(33, 150, 243, 0.85);
+  min-height: 60px;
+}
+
+.tbtn.on {
+  background: rgba(255, 152, 0, 0.92);
+}
+
+.tbtn small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* left-handed: joystick and buttons swap sides */
+body.lefty #joystick {
+  left: auto;
+  right: 24px;
+}
+
+body.lefty #touch-buttons {
+  right: auto;
+  left: 18px;
+}
+
+#lefty-row {
+  margin-bottom: 14px;
+}
+
+#lefty-btn {
+  font-size: 14px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* phones: smaller panels, status text takes less room */
+@media (max-width: 720px) {
+  #touch-buttons {
+    grid-template-columns: repeat(3, 72px);
+    right: 10px;
+    bottom: 10px;
+  }
+
+  body.lefty #touch-buttons {
+    left: 10px;
+  }
+
+  #joystick {
+    width: 116px;
+    height: 116px;
+    left: 10px;
+    bottom: 10px;
+  }
+
+  body.lefty #joystick {
+    right: 10px;
+  }
+
+  #step-banner {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    top: 10px;
+    padding: 8px 12px;
+  }
+
+  #step-text {
+    font-size: 13px;
+  }
+
+  #checklist {
+    display: none;
+  }
+
+  #instructions {
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    padding: 24px 20px;
+  }
 }
