@@ -42,6 +42,28 @@ function tagRoot(group, id, name, carryable, extra = {}) {
   return group;
 }
 
+// ---------- liquids ----------
+// Every liquid mesh is a unit-height cylinder that is scaled to the level it holds,
+// so the level can be animated (see setLevel) instead of popping in and out.
+export function setLevel(liquid, h) {
+  const level = Math.max(0, h);
+  liquid.visible = level > 0.0005;
+  liquid.scale.y = Math.max(level, 0.0005);
+  liquid.position.y = liquid.userData.baseY + level / 2;
+  liquid.userData.level = level;
+}
+
+function makeLiquid(rTop, rBottom, segments, baseY, color, opacity = 0.85) {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(rTop, rBottom, 1, segments),
+    new THREE.MeshStandardMaterial({ color, transparent: true, opacity })
+  );
+  mesh.name = "liquid";
+  mesh.userData.baseY = baseY;
+  setLevel(mesh, 0);
+  return mesh;
+}
+
 // ---------- individual item builders ----------
 
 function buildBeaker(id, name) {
@@ -57,14 +79,7 @@ function buildBeaker(id, name) {
   bottom.position.y = 0.001;
   g.add(bottom);
 
-  const liquid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.15, 0.13, 0.01, 24),
-    new THREE.MeshStandardMaterial({ color: 0x9fe6a0, transparent: true, opacity: 0.85 })
-  );
-  liquid.position.y = 0.01;
-  liquid.visible = false;
-  liquid.name = "liquid";
-  g.add(liquid);
+  g.add(makeLiquid(0.15, 0.13, 24, 0.01, 0x9fe6a0, 0.85));
 
   const cabbageBits = new THREE.Group();
   cabbageBits.name = "cabbageBits";
@@ -90,7 +105,7 @@ function buildBeaker(id, name) {
   return g;
 }
 
-function buildTestTube(id, index, deskPos) {
+function buildTestTube(id, index) {
   const g = new THREE.Group();
   const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.22, 16, 1, true), glassMat());
   glass.position.y = 0.11;
@@ -99,14 +114,7 @@ function buildTestTube(id, index, deskPos) {
   bottom.position.y = 0.0;
   g.add(bottom);
 
-  const liquid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.03, 0.028, 0.01, 16),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
-  );
-  liquid.position.y = 0.02;
-  liquid.visible = false;
-  liquid.name = "liquid";
-  g.add(liquid);
+  g.add(makeLiquid(0.03, 0.028, 16, 0.01, 0xffffff, 0.9));
 
   // tubes sit only 0.08m apart, so a full "시험관 N" label would overlap its neighbours
   g.add(makeLabel(`${index}`));
@@ -135,13 +143,9 @@ function buildDropperBottle(id, name, liquidColor, prefilled) {
   cap.position.y = 0.21;
   g.add(cap);
 
-  const liquid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.04, 0.1, 16),
-    new THREE.MeshStandardMaterial({ color: liquidColor })
-  );
-  liquid.position.y = 0.06;
-  liquid.visible = !!prefilled;
-  liquid.name = "liquid";
+  const liquid = makeLiquid(0.04, 0.04, 16, 0.01, liquidColor, 1);
+  liquid.material.transparent = false;
+  if (prefilled) setLevel(liquid, 0.1);
   g.add(liquid);
 
   g.add(makeLabel(name));
@@ -209,7 +213,9 @@ function buildIgniter(id) {
   return g;
 }
 
-function buildSieve(id) {
+// The filter (체) is not a supply item. It is built on demand and placed on the
+// dropper bottle automatically while the extract is poured through it.
+export function buildSieve(id) {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(0.09, 0.012, 8, 20),
@@ -233,42 +239,7 @@ function buildSieve(id) {
   handle.position.set(0.14, 0.1, 0);
   g.add(handle);
   g.add(makeLabel("체"));
-  tagRoot(g, id, "체", true, { kind: "tool" });
-  return g;
-}
-
-function buildGloveLike(id, name, color) {
-  const g = new THREE.Group();
-  const palm = new THREE.Mesh(
-    new THREE.BoxGeometry(0.1, 0.02, 0.14),
-    new THREE.MeshStandardMaterial({ color })
-  );
-  palm.position.y = 0.03;
-  g.add(palm);
-  g.add(makeLabel(name));
-  tagRoot(g, id, name, true, { kind: "wearable" });
-  return g;
-}
-
-function buildGoggles(id) {
-  const g = new THREE.Group();
-  const frame = new THREE.Mesh(
-    new THREE.TorusGeometry(0.045, 0.012, 8, 16),
-    new THREE.MeshStandardMaterial({ color: 0x263238 })
-  );
-  frame.position.set(-0.05, 0.05, 0);
-  g.add(frame);
-  const frame2 = frame.clone();
-  frame2.position.x = 0.05;
-  g.add(frame2);
-  const bridge = new THREE.Mesh(
-    new THREE.BoxGeometry(0.04, 0.012, 0.012),
-    new THREE.MeshStandardMaterial({ color: 0x263238 })
-  );
-  bridge.position.set(0, 0.05, 0);
-  g.add(bridge);
-  g.add(makeLabel("보안경"));
-  tagRoot(g, id, "보안경", true, { kind: "wearable" });
+  tagRoot(g, id, "체", false, { kind: "tool" });
   return g;
 }
 
@@ -394,23 +365,19 @@ export function buildItems(scene, roomInfo) {
 
   const tubeXs = [-0.2, -0.12, -0.04, 0.04, 0.12, 0.2];
   for (let i = 0; i < 6; i++) {
-    const tube = buildTestTube(`tube${i + 1}`, i + 1, DESK_B);
+    const tube = buildTestTube(`tube${i + 1}`, i + 1);
     tube.position.set(DESK_B.x + tubeXs[i], deskBTop + 0.03, DESK_B.z);
     scene.add(tube);
     registry.set(tube.userData.id, tube);
   }
 
-  // Supply table row of carryable items (materials room)
+  // Supply table: the materials list. One beaker is enough, and gloves, goggles and
+  // the filter are not supplies (the filter is placed automatically during filtering).
   const supplyItems = [
-    buildBeaker("beaker1", "비커 1"),
-    buildBeaker("beaker2", "비커 2"),
+    buildBeaker("beaker1", "비커"),
     buildScissors("scissors"),
     buildCabbage("cabbage"),
     buildIgniter("igniter"),
-    buildSieve("sieve"),
-    buildGloveLike("coated_gloves", "반코팅 면장갑", 0xd7ccc8),
-    buildGloveLike("lab_gloves", "실험용 장갑", 0xeceff1),
-    buildGoggles("goggles"),
     buildDropperBottle("indicator_bottle", "점적병(지시약-빈병)", 0xffffff, false),
     buildDropperBottle("sol_vinegar", "식초", 0xfff176, true),
     buildDropperBottle("sol_cider", "사이다", 0xfff9c4, true),
@@ -419,8 +386,8 @@ export function buildItems(scene, roomInfo) {
     buildDropperBottle("sol_hcl", "묽은 염산", 0xffffff, true),
     buildDropperBottle("sol_naoh", "묽은 수산화나트륨", 0xffffff, true),
   ];
-  // Two rows of 8 across the (shorter) supply table. Items alternate rows so the
-  // two beakers never sit side by side, and each row is centred under the table.
+  // Two staggered rows across the supply table. Items alternate rows so neighbours
+  // never sit directly side by side, and each row is centred under the table.
   const ITEM_SPACING = 0.3;
   const ROW_Z = 0.25;
   const cols = Math.ceil(supplyItems.length / 2);

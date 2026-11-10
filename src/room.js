@@ -149,7 +149,13 @@ export function buildRoom(scene) {
     faucetHit.userData = { id: `sink_${id}_faucet`, name: "수도꼭지", carryable: false, interactType: "faucet" };
     group.add(faucetHit);
 
-    return { faucetHit, waterMesh: water, basinPos: new THREE.Vector3(cfg.x, 0.9, cfg.z + 0.45) };
+    return {
+      faucetHit,
+      waterMesh: water,
+      basinPos: new THREE.Vector3(cfg.x, 0.9, cfg.z + 0.45),
+      // where a beaker stands while water from this faucet falls into it
+      fillPose: new THREE.Vector3(cfg.x, 0.925, cfg.z + 0.48),
+    };
   }
   const sinkA = addSink(SINK_A, "a");
   const sinkB = addSink(SINK_B, "b");
@@ -224,13 +230,16 @@ export function buildRoom(scene) {
   ctx.textBaseline = "middle";
   ctx.fillText("재료실", 128, 50);
   const signTex = new THREE.CanvasTexture(signCanvas);
-  const sign = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.6, 0.6),
-    new THREE.MeshBasicMaterial({ map: signTex })
-  );
-  sign.position.set(ROOM.materialsRoomStartX + 1.5, 3.2, 0);
-  sign.rotation.y = Math.PI / 2;
-  group.add(sign);
+  // One face per direction, so the sign reads from both sides of the room.
+  // Each plane is single-sided, so the two faces do not fight each other.
+  const signGeo = new THREE.PlaneGeometry(1.6, 0.6);
+  const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+  for (const rotY of [Math.PI / 2, -Math.PI / 2]) {
+    const face = new THREE.Mesh(signGeo, signMat);
+    face.position.set(ROOM.materialsRoomStartX + 1.5, 3.2, 0);
+    face.rotation.y = rotY;
+    group.add(face);
+  }
 
   // ---- Lighting ----
   const hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.85);
